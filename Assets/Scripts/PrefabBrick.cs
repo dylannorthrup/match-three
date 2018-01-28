@@ -18,7 +18,7 @@ public class PrefabBrick : MonoBehaviour {
   private bool moving = true;            // Used for signalling if this object is in motion
   static private Vector3 stationary = new Vector3(0,0,0);  // Comparison vector (maybe not needed?)?
   static private float moveCheckTimer = 0.0f;   // Used for smoothing out movement check logic
-  private int myRow;
+  private int myCol;
   private BrickContainer meMum;
 
 	// Use this for initialization
@@ -44,12 +44,16 @@ public class PrefabBrick : MonoBehaviour {
     meMum = transform.parent.gameObject.GetComponent<BrickContainer>();
  	}
 
-  public void setMyRow(int i) {
-    myRow = i;
+  public void setMyCol(int i) {
+    myCol = i;
   }
 
   public int getMyRow() {
-    return myRow;
+    return (int)(transform.position.y + 0.5);
+  }
+
+  public int getMyCol() {
+    return myCol;
   }
 
   // So we can trigger this from the controller
@@ -57,7 +61,7 @@ public class PrefabBrick : MonoBehaviour {
     testColorChanging = true;
   }
 
-  // Something to test whether or not we're moving
+  // Something to test and set whether or not we're moving
   void isWeMoving() {
     if(Time.time < mvmtTestDelay) {
       return;
@@ -80,6 +84,15 @@ public class PrefabBrick : MonoBehaviour {
     }
   }
 
+  public Color getMyColor() {
+    return currentColor;
+  }
+
+  // And a way for other things to see if we're moving
+  public bool weBeMoving() {
+    return moving;
+  }
+
   // Update is called once per frame
   void Update () {
     isWeMoving ();
@@ -95,6 +108,7 @@ public class PrefabBrick : MonoBehaviour {
 
   // Logic for what to do when this object goes away
   void goByeBye() {
+    Debug.LogError ("OH NOE! Going away at column: " + getMyCol() + " and row " + myCol);
     transform.SetParent (transform.parent.parent);
     Destroy (gameObject);
     meMum.whichRowNeedsANewBrick ();
@@ -113,6 +127,7 @@ public class PrefabBrick : MonoBehaviour {
     Debug.Log ("Random number chosen was " + colorIndex);
     Color newColor = colors[colorIndex];
     GetComponent<Renderer> ().material.color = newColor;
+    currentColor = newColor;
   }
 
   // A simple bounds checker for making sure we don't go into uncharted 

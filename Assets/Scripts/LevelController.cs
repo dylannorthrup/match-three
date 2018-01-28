@@ -6,11 +6,11 @@ public class LevelController : MonoBehaviour {
   public Transform brick;
   public int depth = 10;
   public int xOffset = 0;
-  public int yOffset = 0;
+  public int yOffset = 4;
   public int stackWidth = 4;
   public int stackHeight = 8;
   public bool brickColorChanging = false;
-  public int newBrickHeight = 15;
+  public int newBrickHeight = 20;
   private int totalBricks;
   private int currentBricks;
   private BrickContainer bc;
@@ -47,7 +47,7 @@ public class LevelController : MonoBehaviour {
 	}
 
   public void cleanupOnAisle(int i) {
-    Debug.LogWarning ("Doing Cleanup on Aisle " + i);
+    Debug.Log ("Doing Cleanup on Aisle " + i);
     makeBrick (i, newBrickHeight);
   }
     
@@ -57,7 +57,7 @@ public class LevelController : MonoBehaviour {
       Quaternion.identity);
     bt.SetParent (bc.transform);
     b = bt.GetComponent<PrefabBrick> ();
-    b.setMyRow (x);
+    b.setMyCol (x);
     totalBricks++;
   }
 
