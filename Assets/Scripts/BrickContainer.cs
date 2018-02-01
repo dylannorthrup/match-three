@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,6 +13,7 @@ public class BrickContainer : MonoBehaviour {
 
   private LevelController meMum;
   private bool stuffHasMoved;
+  private bool[,] checkBlackList;
  
   // Use this for initialization
   void Start () {
@@ -68,35 +70,43 @@ public class BrickContainer : MonoBehaviour {
     return -1;
   }
 
+  List<int[]> checkNeighbors (List<int[]> brickList, PrefabBrick[,] bProxy, Color myColor, int x, int y) {
+    int[] foo = new int[] { x, y };
+    brickList.Add (foo);
+    Debug.LogWarning ("Checking [" + x + "," + y + "]");
+    if (x > 0 && !checkBlackList [x - 1, y]) {
+      brickList = check (brickList, bProxy, myColor, x - 1, y);
+    }
+    if (x < checkBlackList.GetLength (0) - 1 && !checkBlackList [x + 1, y]) {
+      brickList = check (brickList, bProxy, myColor, x + 1, y);
+    }
+    if (y > 0 && !checkBlackList [x, y - 1]) {
+      brickList = check (brickList, bProxy, myColor, x, y - 1);
+    }
+    return brickList;
+  }
+
   // Okay, this is the fundamental check method. It returns an array of ints that'll
   // get translated into x/y co-ordinates later on. If the color of the PrefabBrick
   // at bProxy[x][y] is the same as what we're looking at, add ourselves to the brickAry,
   // do checkLeft and checkDown, then return the results.
-  List<int> check (List<int> brickAry, PrefabBrick[,] bProxy, Color myColor, int x, int y) {
-    // Get match for the thing we're looking at
-    Color targetColor = bProxy [x, y].getMyColor ();
+  List<int[]> check (List<int[]> brickList, PrefabBrick[,] bProxy, Color myColor, int x, int y) {
+    // Make sure the brick we're checking is actually a brick.
+    Color targetColor;
+    try {
+      // Try to get match for the thing we're looking at
+      targetColor = bProxy [x, y].getMyColor ();
+    } catch (System.IndexOutOfRangeException) {
+      // If it was out of range of the proxy array, just return what we were given
+      return brickList;
+    }
     // If they don't match, simply return what we were given
     if (targetColor != myColor) {
-      return brickAry;
+      return brickList;
     }
-//    int blah = encodePointAsInt (x, y);
-
-    return brickAry;
-  }
-
-  // We want to encode x and y into a single int for easier storage
-  int encodePointAsInt (int x, int y) {
-    int retInt = x + (y * 100);
-    return retInt;
-  }
-
-  // And corresponding decode methods
-  int decodeXFromPoint (int i) {
-    return i % 100;
-  }
-
-  int decodeYFromPoint (int j) {
-    return (int)(j / 100);
+    checkBlackList [x, y] = true;
+    brickList = checkNeighbors (brickList, bProxy, myColor, x, y);
+    return brickList;
   }
 
   void doMatchLogic () {
@@ -114,39 +124,73 @@ public class BrickContainer : MonoBehaviour {
     }
     // We also want to set up a checkBlackList so we can be
     // a little more efficient about checking things.
-    bool[,] checkBlackList = new bool[rows, cols];
+    checkBlackList = new bool[rows, cols];
     // Now that we've built that up, let's compare colors
-    List<int> brickAry = new List<int> ();
-    for (int i = rows - 1; i > 0; i--) {
-      for (int j = cols - 1; j > 0; j--) {
+    List<int[]> brickList;
+    for (int i = rows - 1; i >= 0; i--) {
+      for (int j = cols - 1; j >= 0; j--) {
         if (checkBlackList [i, j] == true) {
           continue;
         }
-        brickAry.Add (encodePointAsInt (i, j));
-        if (i > 1) {
-          brickAry = check (brickAry, brickProxy, brickProxy [i, j].getMyColor (), i - 1, j);
+        brickList = new List<int[]> ();
+        brickList = checkNeighbors (brickList, brickProxy, brickProxy [i, j].getMyColor (), i, j);
+        // Remove any duplicate entries from the bricklist.
+        brickList = brickList.Distinct ().ToList ();
+        // Print out some info about the bricklist.
+        String foo = "";
+        foreach (int[] thing in brickList) {
+          foo = foo + "[" + thing [0] + "," + thing [1] + "]=";
         }
-        if (j > 1) {
-          brickAry = check (brickAry, brickProxy, brickProxy [i, j].getMyColor (), i - 1, j);
-        }
+        Debug.LogWarning ("After doing check that started with [" + i + "," + j + "], the brickList was " + brickList.Count + " elements long: " + foo);
         // Okay, we should have a proper brickAry with all matched brick locations
-        // If the array is larger than the match threshold, set a boolean so we add them to the delete queue
-        bool startDeleting = false;
-        if (brickAry.Count >= matchThreshold) {
-          startDeleting = true;
-        }
-        // Add all of the brick locations to the blacklist (so we don't check them again)
-        brickAry.ForEach ((int intPoint) => {
-          int x = decodeXFromPoint (intPoint);
-          int y = decodeYFromPoint (intPoint);
-          checkBlackList [x, y] = true;
-          if (startDeleting) {
+        // If the array is larger than the match threshold, add them to the delete queue
+        if (brickList.Count >= matchThreshold) {
+          Debug.LogError ("brickList was long enough. Adding those bricks to the deleteQueue");
+          // Add these to the delete queue if we got enough.
+          foreach (int[] entry in brickList) {
+            int x = entry [0];
+            int y = entry [1];
             deleteQueue [x, y] = true;
           }
-        });
+          foo = "Delete queue is: ";
+
+          //    return;
+          // TODO: SOMETHING IS MESSED UP HERE IN THE CHECK!!!! 
+          // TODO: Somehow deleteQueue is getting out of this loop without us detecting things properly
+          // TODO: and printing out its contents.  Something to look at another day
+          for (int k = 0; i < deleteQueue.GetUpperBound (0); k++) {
+            for (int l = 0; j < deleteQueue.GetUpperBound (1); l++) {
+              if (deleteQueue [k, l] == true) {
+                foo = foo + "[" + k + "," + l + "]=";
+              }
+            }
+          }
+          Debug.LogWarning (foo);
+
+        }
+//        brickList.ForEach ((int[,]) => {
+//          int x = 
+//          int y = decodeYFromPoint (intPoint);
+//          checkBlackList [x, y] = true;
+//          if (startDeleting) {
+//            deleteQueue [x, y] = true;
+//          }
+//        });
       }
     }
 
+    String frack = "Delete queue is: ";
+
+//    return;
+    for (int i = 0; i < deleteQueue.GetUpperBound (0); i++) {
+      for (int j = 0; j < deleteQueue.GetUpperBound (1); j++) {
+        if (deleteQueue [i, j]) {
+          frack = frack + "[" + i + "," + j + "]=";
+          brickProxy [i, j].goByeBye ();
+        }
+      }
+    }
+    Debug.LogWarning (frack);
   }
 	
   // Update is called once per frame
